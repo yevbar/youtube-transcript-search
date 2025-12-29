@@ -117,20 +117,31 @@ function displayResults(results, query) {
   let html = '';
 
   results.forEach(result => {
-    const thumbnailUrl = `https://i.ytimg.com/vi/${result.videoId}/mqdefault.jpg`;
-
     result.matches.forEach(match => {
+      const embedUrl = `https://www.youtube-nocookie.com/embed/${result.videoId}`;
+
       html += `
         <div class="result-card">
-          <a href="${result.url}&t=${match.timeSeconds}s" target="_blank" class="result-link">
-            <img src="${thumbnailUrl}" alt="${escapeHtml(result.title)}" class="thumbnail">
+          <div class="result-content">
+            <div class="video-player">
+              <iframe
+                src="${embedUrl}"
+                frameborder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                referrerpolicy="strict-origin-when-cross-origin"
+                allowfullscreen
+                class="video-iframe"
+              ></iframe>
+            </div>
             <div class="result-info">
-              <h3 class="video-title">${escapeHtml(result.title)}</h3>
+              <a href="${result.url}&t=${match.timeSeconds}s" target="_blank" class="video-title-link">
+                <h3 class="video-title">${escapeHtml(result.title)}</h3>
+              </a>
               <p class="video-author">${escapeHtml(result.author)}</p>
               <p class="video-timestamp">${formatTime(match.timestamp)}</p>
               <p class="match-text">${highlightText(escapeHtml(extractContext(match.text, query)), query)}</p>
             </div>
-          </a>
+          </div>
         </div>
       `;
     });
