@@ -26,9 +26,9 @@ async function saveTranscript(videoId, transcript, metadata) {
     };
 
     await chrome.storage.local.set({ videos: videos });
-    console.log(`Transcript saved for video: ${videoId}`);
+    console.log(`[Background] Transcript saved for video: ${videoId}`);
   } catch (error) {
-    console.error('Error saving transcript:', error);
+    console.error('[Background] Error saving transcript:', error);
   }
 }
 
