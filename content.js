@@ -15,12 +15,27 @@ window.addEventListener('message', function(event) {
     console.log('[Content Script] Transcript captured for video:', event.data.videoId);
     const metadata = extractMetadata();
 
-    chrome.runtime.sendMessage({
-      type: 'TRANSCRIPT_CAPTURED',
-      videoId: event.data.videoId,
-      transcript: event.data.transcript,
-      metadata: metadata
-    });
+    // Check if extension context is still valid
+    if (!chrome.runtime?.id) {
+      console.warn('[Content Script] Extension context invalidated. Please refresh the page.');
+      return;
+    }
+
+    try {
+      chrome.runtime.sendMessage({
+        type: 'TRANSCRIPT_CAPTURED',
+        videoId: event.data.videoId,
+        transcript: event.data.transcript,
+        metadata: metadata
+      }, (response) => {
+        // Check for errors in the response
+        if (chrome.runtime.lastError) {
+          console.warn('[Content Script] Message failed:', chrome.runtime.lastError.message);
+        }
+      });
+    } catch (error) {
+      console.warn('[Content Script] Failed to send message:', error.message);
+    }
   }
 });
 
