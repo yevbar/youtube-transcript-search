@@ -95,19 +95,46 @@ body {
 .result-card {
   border: 1px solid #e0e0e0;
   border-radius: 8px;
-  overflow: hidden;
-  transition: box-shadow 0.2s;
   background: white;
+  margin-bottom: 0;
 }
 
-.result-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+.result-card summary {
+  cursor: pointer;
+  padding: 16px;
+  font-size: 16px;
+  font-weight: 500;
+  color: #030303;
+  list-style: none;
+  user-select: none;
+}
+
+.result-card summary::-webkit-details-marker {
+  display: none;
+}
+
+.result-card summary::before {
+  content: '›';
+  display: inline-block;
+  margin-right: 12px;
+  transition: transform 0.2s;
+  font-size: 20px;
+  font-weight: bold;
+  color: #606060;
+}
+
+.result-card[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.result-card summary:hover {
+  background-color: #f9f9f9;
 }
 
 .result-content {
   display: flex;
   gap: 16px;
-  padding: 16px;
+  padding: 0 16px 16px 16px;
 }
 
 .video-player {
@@ -215,6 +242,41 @@ body {
   font-weight: 600;
   padding: 1px 2px;
   border-radius: 2px;
+}
+
+/* Matches section */
+.matches-section {
+  margin-top: 16px;
+}
+
+.matches-label {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: #606060;
+}
+
+/* Individual match item */
+.match-item {
+  display: flex;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.match-item:last-child {
+  border-bottom: none;
+}
+
+.match-item .video-timestamp {
+  margin: 0;
+  flex-shrink: 0;
+  min-width: 50px;
+}
+
+.match-item .match-text {
+  margin: 0;
+  flex: 1;
 }
 
 /* Responsive design for smaller screens */
