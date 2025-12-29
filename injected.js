@@ -1,7 +1,302 @@
 (function() {
   console.log('[Injected Script] Loaded and running');
-  const originalFetch = window.fetch;
 
+  // ============================================
+  // CONFIGURATION
+  // ============================================
+  const CONFIG = {
+    FALLBACK_DELAY_MS: 2500,           // Wait before trying fallback
+    CAPTION_RESTORE_DELAY_MS: 1000,    // Wait before restoring state
+    BUTTON_POLL_INTERVAL_MS: 100,      // Interval between button polls
+    BUTTON_POLL_MAX_ATTEMPTS: 30,      // Max polling attempts (3s total)
+    NAVIGATION_SETTLE_DELAY_MS: 1500,  // Initial delay after navigation
+    TOGGLE_RETRY_DELAY_MS: 500         // Delay between off/on toggle
+  };
+
+  // ============================================
+  // STATE MANAGEMENT
+  // ============================================
+  const state = {
+    currentVideoId: null,           // Track current video
+    transcriptCaptured: false,      // Whether transcript was captured
+    fallbackTimer: null,            // Timer for triggering fallback
+    fallbackInProgress: false,      // Prevent concurrent fallbacks
+    originalCaptionState: null,     // User's original caption preference
+    captionRestoreTimer: null       // Timer for restoring state
+  };
+
+  // ============================================
+  // UTILITY FUNCTIONS
+  // ============================================
+
+  function getCurrentVideoId() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('v');
+  }
+
+  // ============================================
+  // CAPTION BUTTON INTERACTION
+  // ============================================
+
+  function getCaptionButton() {
+    try {
+      const buttons = Array.from(document.getElementsByClassName('ytp-subtitles-button'));
+      return buttons.length > 0 ? buttons[0] : null;
+    } catch (error) {
+      console.error('[Injected Script] Error accessing caption button:', error);
+      return null;
+    }
+  }
+
+  function isCaptionButtonAvailable(button) {
+    if (!button) return false;
+
+    try {
+      const tooltipTitle = button.getAttribute('data-tooltip-title') || '';
+      const isUnavailable = tooltipTitle.toLowerCase().includes('unavailable');
+      return !isUnavailable;
+    } catch (error) {
+      console.error('[Injected Script] Error checking button availability:', error);
+      return false;
+    }
+  }
+
+  function getCaptionState(button) {
+    if (!button) return null;
+
+    try {
+      const ariaPressed = button.getAttribute('aria-pressed');
+      return ariaPressed === 'true';
+    } catch (error) {
+      console.error('[Injected Script] Error reading caption state:', error);
+      return null;
+    }
+  }
+
+  async function waitForCaptionButton(maxAttempts = CONFIG.BUTTON_POLL_MAX_ATTEMPTS) {
+    for (let i = 0; i < maxAttempts; i++) {
+      try {
+        const button = getCaptionButton();
+        if (button) {
+          console.log('[Injected Script] Caption button found after', i + 1, 'attempts');
+          return button;
+        }
+      } catch (error) {
+        console.error('[Injected Script] Error during button poll:', error);
+      }
+      await new Promise(resolve => setTimeout(resolve, CONFIG.BUTTON_POLL_INTERVAL_MS));
+    }
+    console.log('[Injected Script] Caption button not found after', maxAttempts, 'attempts');
+    return null;
+  }
+
+  // ============================================
+  // FALLBACK LOGIC
+  // ============================================
+
+  async function attemptCaptionToggleFallback() {
+    if (state.fallbackInProgress) {
+      console.log('[Injected Script] Fallback already in progress');
+      return;
+    }
+
+    state.fallbackInProgress = true;
+
+    try {
+      console.log('[Injected Script] Starting caption toggle fallback');
+
+      // Wait for button to appear
+      const button = await waitForCaptionButton();
+
+      if (!button) {
+        console.log('[Injected Script] Caption button not found after polling, aborting fallback');
+        state.fallbackInProgress = false;
+        return;
+      }
+
+      // Check if captions are available
+      if (!isCaptionButtonAvailable(button)) {
+        console.log('[Injected Script] Captions unavailable for this video, aborting fallback');
+        state.fallbackInProgress = false;
+        return;
+      }
+
+      // Store original state
+      state.originalCaptionState = getCaptionState(button);
+      console.log('[Injected Script] Original caption state:', state.originalCaptionState);
+
+      // If captions already enabled, wait a bit more then try toggling
+      if (state.originalCaptionState) {
+        console.log('[Injected Script] Captions already enabled, waiting for transcript');
+        setTimeout(() => {
+          if (!state.transcriptCaptured) {
+            console.log('[Injected Script] Still no transcript, toggling off and on');
+            toggleCaptionsOffAndOn(button);
+          } else {
+            console.log('[Injected Script] Transcript captured while waiting');
+            state.fallbackInProgress = false;
+          }
+        }, 1000);
+        return;
+      }
+
+      // Enable captions
+      console.log('[Injected Script] Enabling captions to trigger transcript fetch');
+      button.click();
+
+      // Schedule restoration check
+      scheduleRestoration();
+
+    } catch (error) {
+      console.error('[Injected Script] Error in fallback:', error);
+      state.fallbackInProgress = false;
+    }
+  }
+
+  function toggleCaptionsOffAndOn(button) {
+    if (!button) return;
+
+    try {
+      // Toggle off
+      console.log('[Injected Script] Toggling captions off');
+      button.click();
+
+      // Wait a bit then toggle back on
+      setTimeout(() => {
+        console.log('[Injected Script] Toggling captions back on');
+        button.click();
+        scheduleRestoration();
+      }, CONFIG.TOGGLE_RETRY_DELAY_MS);
+    } catch (error) {
+      console.error('[Injected Script] Error toggling captions:', error);
+    }
+  }
+
+  function scheduleRestoration() {
+    // Cancel any existing restoration timer
+    if (state.captionRestoreTimer) {
+      clearTimeout(state.captionRestoreTimer);
+    }
+
+    // Wait for transcript to be captured, then restore original state
+    state.captionRestoreTimer = setTimeout(() => {
+      restoreOriginalCaptionState();
+    }, CONFIG.CAPTION_RESTORE_DELAY_MS);
+
+    console.log('[Injected Script] Scheduled caption state restoration in', CONFIG.CAPTION_RESTORE_DELAY_MS, 'ms');
+  }
+
+  function restoreOriginalCaptionState() {
+    try {
+      const button = getCaptionButton();
+
+      if (!button) {
+        console.log('[Injected Script] Cannot restore: button not found');
+        return;
+      }
+
+      if (state.originalCaptionState === null) {
+        console.log('[Injected Script] No original state to restore');
+        return;
+      }
+
+      const currentState = getCaptionState(button);
+
+      // Only click if we need to change state
+      if (currentState !== state.originalCaptionState) {
+        console.log('[Injected Script] Restoring caption state to:', state.originalCaptionState);
+        button.click();
+      } else {
+        console.log('[Injected Script] Caption state already matches original');
+      }
+
+      // Clear the restoration timer
+      state.captionRestoreTimer = null;
+    } catch (error) {
+      console.error('[Injected Script] Error restoring caption state:', error);
+    }
+  }
+
+  // ============================================
+  // VIDEO NAVIGATION DETECTION
+  // ============================================
+
+  function onVideoChange(videoId) {
+    console.log('[Injected Script] Video changed to:', videoId);
+
+    // Reset state for new video
+    if (state.fallbackTimer) {
+      clearTimeout(state.fallbackTimer);
+      state.fallbackTimer = null;
+    }
+    if (state.captionRestoreTimer) {
+      clearTimeout(state.captionRestoreTimer);
+      state.captionRestoreTimer = null;
+    }
+
+    state.currentVideoId = videoId;
+    state.transcriptCaptured = false;
+    state.fallbackInProgress = false;
+    state.originalCaptionState = null;
+
+    // Schedule fallback check
+    scheduleFallbackCheck();
+  }
+
+  function scheduleFallbackCheck() {
+    state.fallbackTimer = setTimeout(() => {
+      if (!state.transcriptCaptured) {
+        console.log('[Injected Script] No transcript captured after', CONFIG.FALLBACK_DELAY_MS, 'ms, attempting fallback');
+        attemptCaptionToggleFallback();
+      } else {
+        console.log('[Injected Script] Transcript already captured, skipping fallback');
+      }
+    }, CONFIG.FALLBACK_DELAY_MS);
+
+    console.log('[Injected Script] Scheduled fallback check in', CONFIG.FALLBACK_DELAY_MS, 'ms');
+  }
+
+  // ============================================
+  // NETWORK INTERCEPTION
+  // ============================================
+
+  function onTranscriptCaptured(videoId, transcript) {
+    console.log('[Injected Script] Transcript captured for video:', videoId);
+
+    // Update state
+    state.transcriptCaptured = true;
+
+    // Cancel fallback timer if still pending
+    if (state.fallbackTimer) {
+      clearTimeout(state.fallbackTimer);
+      state.fallbackTimer = null;
+      console.log('[Injected Script] Cancelled fallback timer');
+    }
+
+    // Trigger restoration if fallback was used
+    if (state.fallbackInProgress && state.originalCaptionState !== null) {
+      console.log('[Injected Script] Fallback was active, scheduling restoration');
+      // Cancel any existing restoration timer
+      if (state.captionRestoreTimer) {
+        clearTimeout(state.captionRestoreTimer);
+      }
+      // Schedule restoration
+      scheduleRestoration();
+    }
+
+    // Post message to content script
+    console.log('[Injected Script] Posting transcript message');
+    window.postMessage({
+      type: 'TRANSCRIPT_CAPTURED',
+      videoId: videoId,
+      transcript: transcript
+    }, '*');
+
+    state.fallbackInProgress = false;
+  }
+
+  // Wrap existing fetch
+  const originalFetch = window.fetch;
   window.fetch = async function(...args) {
     const response = await originalFetch.apply(this, args);
     const url = args[0];
@@ -14,20 +309,16 @@
         const urlObj = new URL(url);
         const videoId = urlObj.searchParams.get('v');
 
-        console.log('[Injected Script] Posting transcript for video:', videoId);
-        window.postMessage({
-          type: 'TRANSCRIPT_CAPTURED',
-          videoId: videoId,
-          transcript: data
-        }, '*');
+        onTranscriptCaptured(videoId, data);
       } catch (error) {
-        console.error('[Injected Script] Error capturing transcript:', error);
+        console.error('[Injected Script] Error capturing transcript from fetch:', error);
       }
     }
 
     return response;
   };
 
+  // Wrap existing XMLHttpRequest
   const originalOpen = XMLHttpRequest.prototype.open;
   const originalSend = XMLHttpRequest.prototype.send;
 
@@ -44,16 +335,62 @@
           const urlObj = new URL(this._url);
           const videoId = urlObj.searchParams.get('v');
 
-          window.postMessage({
-            type: 'TRANSCRIPT_CAPTURED',
-            videoId: videoId,
-            transcript: data
-          }, '*');
+          onTranscriptCaptured(videoId, data);
         } catch (error) {
-          console.error('Error capturing transcript from XHR:', error);
+          console.error('[Injected Script] Error capturing transcript from XHR:', error);
         }
       });
     }
     return originalSend.apply(this, arguments);
   };
+
+  // ============================================
+  // NAVIGATION MONITORING SETUP
+  // ============================================
+
+  // Method 1: Listen to YouTube's yt-navigate-finish event
+  document.addEventListener('yt-navigate-finish', () => {
+    const videoId = getCurrentVideoId();
+    if (videoId && videoId !== state.currentVideoId) {
+      onVideoChange(videoId);
+    }
+  });
+
+  // Method 2: Fallback URL change detection (for older YouTube versions)
+  let lastUrl = location.href;
+  const urlObserver = new MutationObserver(() => {
+    if (location.href !== lastUrl) {
+      lastUrl = location.href;
+      const videoId = getCurrentVideoId();
+      if (videoId && videoId !== state.currentVideoId) {
+        onVideoChange(videoId);
+      }
+    }
+  });
+
+  urlObserver.observe(document, {
+    subtree: true,
+    childList: true
+  });
+
+  // Method 3: Initial page load detection
+  function initializeForCurrentVideo() {
+    const videoId = getCurrentVideoId();
+    if (videoId) {
+      console.log('[Injected Script] Initial video detected:', videoId);
+      // Wait for player to be ready
+      setTimeout(() => {
+        onVideoChange(videoId);
+      }, CONFIG.NAVIGATION_SETTLE_DELAY_MS);
+    }
+  }
+
+  // Start monitoring when script loads
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeForCurrentVideo);
+  } else {
+    initializeForCurrentVideo();
+  }
+
+  console.log('[Injected Script] Navigation detection initialized');
 })();
