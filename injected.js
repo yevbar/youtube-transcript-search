@@ -22,7 +22,8 @@
     fallbackTimer: null,            // Timer for triggering fallback
     fallbackInProgress: false,      // Prevent concurrent fallbacks
     originalCaptionState: null,     // User's original caption preference
-    captionRestoreTimer: null       // Timer for restoring state
+    captionRestoreTimer: null,      // Timer for restoring state
+    navigationTimer: null           // Timer for pending navigation
   };
 
   // ============================================
@@ -233,6 +234,10 @@
       clearTimeout(state.captionRestoreTimer);
       state.captionRestoreTimer = null;
     }
+    if (state.navigationTimer) {
+      clearTimeout(state.navigationTimer);
+      state.navigationTimer = null;
+    }
 
     state.currentVideoId = videoId;
     state.transcriptCaptured = false;
@@ -352,7 +357,24 @@
   document.addEventListener('yt-navigate-finish', () => {
     const videoId = getCurrentVideoId();
     if (videoId && videoId !== state.currentVideoId) {
-      onVideoChange(videoId);
+      console.log('[Injected Script] SPA navigation detected via yt-navigate-finish');
+
+      // Clear any pending navigation timer
+      if (state.navigationTimer) {
+        clearTimeout(state.navigationTimer);
+      }
+
+      // Schedule navigation handling after settle delay
+      state.navigationTimer = setTimeout(() => {
+        state.navigationTimer = null;
+        // Re-check video ID in case user navigated again during delay
+        const currentVideoId = getCurrentVideoId();
+        if (currentVideoId === videoId) {
+          onVideoChange(videoId);
+        } else {
+          console.log('[Injected Script] Video changed during settle delay, skipping');
+        }
+      }, CONFIG.NAVIGATION_SETTLE_DELAY_MS);
     }
   });
 
@@ -363,7 +385,24 @@
       lastUrl = location.href;
       const videoId = getCurrentVideoId();
       if (videoId && videoId !== state.currentVideoId) {
-        onVideoChange(videoId);
+        console.log('[Injected Script] SPA navigation detected via URL change');
+
+        // Clear any pending navigation timer
+        if (state.navigationTimer) {
+          clearTimeout(state.navigationTimer);
+        }
+
+        // Schedule navigation handling after settle delay
+        state.navigationTimer = setTimeout(() => {
+          state.navigationTimer = null;
+          // Re-check video ID in case user navigated again during delay
+          const currentVideoId = getCurrentVideoId();
+          if (currentVideoId === videoId) {
+            onVideoChange(videoId);
+          } else {
+            console.log('[Injected Script] Video changed during settle delay, skipping');
+          }
+        }, CONFIG.NAVIGATION_SETTLE_DELAY_MS);
       }
     }
   });
@@ -382,6 +421,8 @@
       setTimeout(() => {
         onVideoChange(videoId);
       }, CONFIG.NAVIGATION_SETTLE_DELAY_MS);
+    } else {
+      console.log('[Injected Script] Not a video page, waiting for navigation');
     }
   }
 
