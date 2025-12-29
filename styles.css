@@ -1,0 +1,101 @@
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+.search-container {
+  padding: 16px;
+  width: 300px;
+  display: flex;
+  gap: 8px;
+}
+
+#searchInput {
+  flex: 1;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+#searchInput:focus {
+  outline: none;
+  border-color: #4285f4;
+}
+
+#searchButton {
+  padding: 8px 12px;
+  background-color: #4285f4;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+#searchButton:hover {
+  background-color: #357ae8;
+}
+
+.results-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.results-container h1 {
+  font-size: 24px;
+  margin-bottom: 10px;
+}
+
+#resultsCount {
+  color: #666;
+  margin-bottom: 20px;
+}
+
+.result-item {
+  border: 1px solid #ddd;
+  padding: 16px;
+  margin-bottom: 16px;
+  border-radius: 4px;
+  background-color: #fff;
+}
+
+.result-item h3 {
+  margin: 0 0 8px 0;
+  font-size: 18px;
+}
+
+.result-item a {
+  color: #1a0dab;
+  text-decoration: none;
+}
+
+.result-item a:hover {
+  text-decoration: underline;
+}
+
+.author {
+  color: #666;
+  font-size: 14px;
+  margin: 4px 0;
+}
+
+.timestamp {
+  color: #888;
+  font-size: 12px;
+  margin: 4px 0;
+}
+
+.text {
+  margin-top: 8px;
+  line-height: 1.5;
+  color: #333;
+}
+
+mark {
+  background-color: #ffeb3b;
+  font-weight: bold;
+  padding: 2px 0;
+}
