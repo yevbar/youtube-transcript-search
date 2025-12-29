@@ -1,29 +1,10 @@
+/* Custom overrides for 7.css integration */
 body {
-  margin: 0;
-  padding: 0;
-  background: #f9f9f9;
   font-family: "Roboto", Arial, sans-serif;
 }
 
-.results-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 24px;
-  background: white;
-  min-height: 100vh;
-}
-
 .header {
-  border-bottom: 2px solid #e0e0e0;
-  padding-bottom: 16px;
-  margin-bottom: 24px;
-}
-
-.header h1 {
-  margin: 0 0 16px 0;
-  font-size: 24px;
-  font-weight: 500;
-  color: #030303;
+  margin-bottom: 16px;
 }
 
 .search-form {
@@ -34,38 +15,11 @@ body {
 
 .search-input {
   flex: 1;
-  padding: 10px 16px;
-  font-size: 16px;
-  border: 1px solid #ccc;
-  border-radius: 20px;
-  outline: none;
-  transition: border-color 0.2s;
   font-family: "Roboto", Arial, sans-serif;
-}
-
-.search-input:focus {
-  border-color: #065fd4;
 }
 
 .search-button {
-  padding: 10px 24px;
-  font-size: 14px;
-  font-weight: 500;
-  color: white;
-  background-color: #065fd4;
-  border: none;
-  border-radius: 20px;
-  cursor: pointer;
-  transition: background-color 0.2s;
   font-family: "Roboto", Arial, sans-serif;
-}
-
-.search-button:hover {
-  background-color: #0553b8;
-}
-
-.search-button:active {
-  background-color: #044a9f;
 }
 
 .search-query {
@@ -93,42 +47,15 @@ body {
 }
 
 .result-card {
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  background: white;
-  margin-bottom: 0;
+  margin-bottom: 8px;
 }
 
 .result-card summary {
-  cursor: pointer;
-  padding: 16px;
+  padding: 12px 16px 12px 24px;
   font-size: 16px;
   font-weight: 500;
   color: #030303;
-  list-style: none;
   user-select: none;
-}
-
-.result-card summary::-webkit-details-marker {
-  display: none;
-}
-
-.result-card summary::before {
-  content: '›';
-  display: inline-block;
-  margin-right: 12px;
-  transition: transform 0.2s;
-  font-size: 20px;
-  font-weight: bold;
-  color: #606060;
-}
-
-.result-card[open] summary::before {
-  transform: rotate(90deg);
-}
-
-.result-card summary:hover {
-  background-color: #f9f9f9;
 }
 
 .result-content {

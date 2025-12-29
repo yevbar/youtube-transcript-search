@@ -4,27 +4,37 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Transcript Search Results</title>
+  <link rel="stylesheet" href="7.css">
   <link rel="stylesheet" href="results.css">
   <meta name="referrer" content="strict-origin-when-cross-origin" />
 </head>
-<body>
-  <div class="results-container">
-    <div class="header">
-      <h1>Transcript Search Results</h1>
-      <form id="searchForm" class="search-form">
-        <input
-          type="text"
-          id="searchInput"
-          class="search-input"
-          placeholder="Search transcripts..."
-          autocomplete="off"
-        >
-        <button type="submit" class="search-button">Search</button>
-      </form>
-      <div id="searchQuery" class="search-query"></div>
+<body style="background: linear-gradient(to bottom, #4580c3, #2e6cb7); margin: 0; padding: 20px; min-height: 100vh;">
+  <div class="window active" style="max-width: 900px; margin: 0 auto;">
+    <div class="title-bar">
+      <div class="title-bar-text">Transcript Search Results</div>
+      <div class="title-bar-controls">
+        <button aria-label="Minimize"></button>
+        <button aria-label="Maximize"></button>
+        <button aria-label="Close"></button>
+      </div>
     </div>
-    <div id="resultsCount" class="results-count"></div>
-    <div id="resultsContent" class="results-content"></div>
+    <div class="window-body has-space">
+      <div class="header">
+        <form id="searchForm" class="search-form">
+          <input
+            type="text"
+            id="searchInput"
+            class="search-input"
+            placeholder="Search transcripts..."
+            autocomplete="off"
+          >
+          <button type="submit" class="search-button">Search</button>
+        </form>
+        <div id="searchQuery" class="search-query"></div>
+      </div>
+      <div id="resultsCount" class="results-count"></div>
+      <div id="resultsContent" class="results-content"></div>
+    </div>
   </div>
   <script src="results.js"></script>
 </body>

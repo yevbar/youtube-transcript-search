@@ -2,12 +2,21 @@
 <html>
 <head>
   <meta charset="UTF-8">
+  <link rel="stylesheet" href="7.css">
   <link rel="stylesheet" href="styles.css">
 </head>
-<body>
-  <div class="search-container">
-    <input type="text" id="searchInput" placeholder="Search transcripts...">
-    <button id="searchButton">🔍</button>
+<body style="margin: 0; padding: 0; width: 300px;">
+  <div class="window glass active">
+    <div class="title-bar">
+      <div class="title-bar-text">Search</div>
+    </div>
+    <div class="window-body">
+      <div class="group">
+        <label for="searchInput">Search transcripts:</label>
+        <input type="text" id="searchInput" placeholder="Enter search query...">
+        <button id="searchButton">Search</button>
+      </div>
+    </div>
   </div>
   <script src="popup.js"></script>
 </body>
