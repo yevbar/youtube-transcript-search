@@ -11,8 +11,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
-  document.getElementById('searchQuery').textContent = `"${query}"`;
+  // Pre-populate the search input with the current query
+  const searchInput = document.getElementById('searchInput');
+  searchInput.value = query;
+
+  document.getElementById('searchQuery').textContent = `Searching for: "${query}"`;
   await performSearch(query);
+
+  // Handle search form submission
+  const searchForm = document.getElementById('searchForm');
+  searchForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const newQuery = searchInput.value.trim();
+
+    if (!newQuery) {
+      return;
+    }
+
+    // Update URL and reload the page with the new query
+    const newUrl = `${window.location.pathname}?q=${encodeURIComponent(newQuery)}`;
+    window.location.href = newUrl;
+  });
 });
 
 function getSearchQuery() {

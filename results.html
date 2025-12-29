@@ -10,6 +10,16 @@
   <div class="results-container">
     <div class="header">
       <h1>Transcript Search Results</h1>
+      <form id="searchForm" class="search-form">
+        <input
+          type="text"
+          id="searchInput"
+          class="search-input"
+          placeholder="Search transcripts..."
+          autocomplete="off"
+        >
+        <button type="submit" class="search-button">Search</button>
+      </form>
       <div id="searchQuery" class="search-query"></div>
     </div>
     <div id="resultsCount" class="results-count"></div>
