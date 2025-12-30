@@ -39,9 +39,7 @@
     CAPTION_RESTORE_DELAY_MS: 1000,    // Wait before restoring state
     BUTTON_POLL_INTERVAL_MS: 100,      // Interval between button polls
     BUTTON_POLL_MAX_ATTEMPTS: 30,      // Max polling attempts (3s total)
-    NAVIGATION_SETTLE_DELAY_MS: 1500,  // Initial delay after navigation
-    TOGGLE_RETRY_DELAY_MS: 500         // Delay between off/on toggle
-  };
+    NAVIGATION_SETTLE_DELAY_MS: 1500};
 
   function getCaptionButton() {
     try {
@@ -157,18 +155,10 @@
       state.originalCaptionState = getCaptionState(button);
       console.log('[Injected Script] Original caption state:', state.originalCaptionState);
 
-      // If captions already enabled, wait a bit more then try toggling
+      // If captions already enabled, let natural API capture handle it
       if (state.originalCaptionState) {
-        console.log('[Injected Script] Captions already enabled, waiting for transcript');
-        setTimeout(() => {
-          if (!state.transcriptCaptured) {
-            console.log('[Injected Script] Still no transcript, toggling off and on');
-            toggleCaptionsOffAndOn(button);
-          } else {
-            console.log('[Injected Script] Transcript captured while waiting');
-            state.fallbackInProgress = false;
-          }
-        }, 1000);
+        console.log('[Injected Script] Captions already enabled, transcript will be captured naturally');
+        state.fallbackInProgress = false;
         return;
       }
 
@@ -182,25 +172,6 @@
     } catch (error) {
       console.error('[Injected Script] Error in fallback:', error);
       state.fallbackInProgress = false;
-    }
-  }
-
-  function toggleCaptionsOffAndOn(button) {
-    if (!button) return;
-
-    try {
-      // Toggle off
-      console.log('[Injected Script] Toggling captions off');
-      button.click();
-
-      // Wait a bit then toggle back on
-      setTimeout(() => {
-        console.log('[Injected Script] Toggling captions back on');
-        button.click();
-        scheduleRestoration();
-      }, CONFIG.TOGGLE_RETRY_DELAY_MS);
-    } catch (error) {
-      console.error('[Injected Script] Error toggling captions:', error);
     }
   }
 

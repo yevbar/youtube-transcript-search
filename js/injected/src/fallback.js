@@ -39,18 +39,10 @@ export async function attemptCaptionToggleFallback() {
     state.originalCaptionState = getCaptionState(button);
     console.log('[Injected Script] Original caption state:', state.originalCaptionState);
 
-    // If captions already enabled, wait a bit more then try toggling
+    // If captions already enabled, let natural API capture handle it
     if (state.originalCaptionState) {
-      console.log('[Injected Script] Captions already enabled, waiting for transcript');
-      setTimeout(() => {
-        if (!state.transcriptCaptured) {
-          console.log('[Injected Script] Still no transcript, toggling off and on');
-          toggleCaptionsOffAndOn(button);
-        } else {
-          console.log('[Injected Script] Transcript captured while waiting');
-          state.fallbackInProgress = false;
-        }
-      }, 1000);
+      console.log('[Injected Script] Captions already enabled, transcript will be captured naturally');
+      state.fallbackInProgress = false;
       return;
     }
 
