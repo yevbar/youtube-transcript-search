@@ -345,4 +345,8 @@ chrome.storage.local.get('lastQuery', (result) => {
   }
 });
 
+// Select default tab to ensure consistent state
+// This will be overridden by caption detection if captions are available
+selectTab('transcipts');
+
 checkForCaptionsAndUpdatePopup();
