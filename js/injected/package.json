@@ -1,0 +1,16 @@
+{
+  "name": "youtube-transcript-search-injected",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Build tools for injected script bundling",
+  "scripts": {
+    "build": "rollup -c",
+    "watch": "rollup -c -w",
+    "clean": "rm -rf dist/*.js"
+  },
+  "devDependencies": {
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "rollup": "^4.9.0"
+  }
+}

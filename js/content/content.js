@@ -1,7 +1,7 @@
 console.log('[Content Script] Loaded on YouTube page');
 
 const script = document.createElement('script');
-script.src = chrome.runtime.getURL('injected.js');
+script.src = chrome.runtime.getURL('js/injected/dist/injected.bundle.js');
 script.onload = function() {
   this.remove();
   console.log('[Content Script] Injected script loaded');

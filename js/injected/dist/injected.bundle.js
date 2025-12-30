@@ -1,21 +1,5 @@
-(function() {
-  console.log('[Injected Script] Loaded and running');
+(function () {
 
-  // ============================================
-  // CONFIGURATION
-  // ============================================
-  const CONFIG = {
-    FALLBACK_DELAY_MS: 2500,           // Wait before trying fallback
-    CAPTION_RESTORE_DELAY_MS: 1000,    // Wait before restoring state
-    BUTTON_POLL_INTERVAL_MS: 100,      // Interval between button polls
-    BUTTON_POLL_MAX_ATTEMPTS: 30,      // Max polling attempts (3s total)
-    NAVIGATION_SETTLE_DELAY_MS: 1500,  // Initial delay after navigation
-    TOGGLE_RETRY_DELAY_MS: 500         // Delay between off/on toggle
-  };
-
-  // ============================================
-  // STATE MANAGEMENT
-  // ============================================
   const state = {
     currentVideoId: null,           // Track current video
     transcriptCaptured: false,      // Whether transcript was captured
@@ -26,18 +10,38 @@
     navigationTimer: null           // Timer for pending navigation
   };
 
-  // ============================================
-  // UTILITY FUNCTIONS
-  // ============================================
-
   function getCurrentVideoId() {
     const urlParams = new URLSearchParams(window.location.search);
     return urlParams.get('v');
   }
 
-  // ============================================
-  // CAPTION BUTTON INTERACTION
-  // ============================================
+  function resetState() {
+    if (state.fallbackTimer) {
+      clearTimeout(state.fallbackTimer);
+      state.fallbackTimer = null;
+    }
+    if (state.captionRestoreTimer) {
+      clearTimeout(state.captionRestoreTimer);
+      state.captionRestoreTimer = null;
+    }
+    if (state.navigationTimer) {
+      clearTimeout(state.navigationTimer);
+      state.navigationTimer = null;
+    }
+
+    state.transcriptCaptured = false;
+    state.fallbackInProgress = false;
+    state.originalCaptionState = null;
+  }
+
+  const CONFIG = {
+    FALLBACK_DELAY_MS: 2500,           // Wait before trying fallback
+    CAPTION_RESTORE_DELAY_MS: 1000,    // Wait before restoring state
+    BUTTON_POLL_INTERVAL_MS: 100,      // Interval between button polls
+    BUTTON_POLL_MAX_ATTEMPTS: 30,      // Max polling attempts (3s total)
+    NAVIGATION_SETTLE_DELAY_MS: 1500,  // Initial delay after navigation
+    TOGGLE_RETRY_DELAY_MS: 500         // Delay between off/on toggle
+  };
 
   function getCaptionButton() {
     try {
@@ -91,9 +95,36 @@
     return null;
   }
 
-  // ============================================
-  // FALLBACK LOGIC
-  // ============================================
+  function restoreOriginalCaptionState() {
+    try {
+      const button = getCaptionButton();
+
+      if (!button) {
+        console.log('[Injected Script] Cannot restore: button not found');
+        return;
+      }
+
+      if (state.originalCaptionState === null) {
+        console.log('[Injected Script] No original state to restore');
+        return;
+      }
+
+      const currentState = getCaptionState(button);
+
+      // Only click if we need to change state
+      if (currentState !== state.originalCaptionState) {
+        console.log('[Injected Script] Restoring caption state to:', state.originalCaptionState);
+        button.click();
+      } else {
+        console.log('[Injected Script] Caption state already matches original');
+      }
+
+      // Clear the restoration timer
+      state.captionRestoreTimer = null;
+    } catch (error) {
+      console.error('[Injected Script] Error restoring caption state:', error);
+    }
+  }
 
   async function attemptCaptionToggleFallback() {
     if (state.fallbackInProgress) {
@@ -187,67 +218,6 @@
     console.log('[Injected Script] Scheduled caption state restoration in', CONFIG.CAPTION_RESTORE_DELAY_MS, 'ms');
   }
 
-  function restoreOriginalCaptionState() {
-    try {
-      const button = getCaptionButton();
-
-      if (!button) {
-        console.log('[Injected Script] Cannot restore: button not found');
-        return;
-      }
-
-      if (state.originalCaptionState === null) {
-        console.log('[Injected Script] No original state to restore');
-        return;
-      }
-
-      const currentState = getCaptionState(button);
-
-      // Only click if we need to change state
-      if (currentState !== state.originalCaptionState) {
-        console.log('[Injected Script] Restoring caption state to:', state.originalCaptionState);
-        button.click();
-      } else {
-        console.log('[Injected Script] Caption state already matches original');
-      }
-
-      // Clear the restoration timer
-      state.captionRestoreTimer = null;
-    } catch (error) {
-      console.error('[Injected Script] Error restoring caption state:', error);
-    }
-  }
-
-  // ============================================
-  // VIDEO NAVIGATION DETECTION
-  // ============================================
-
-  function onVideoChange(videoId) {
-    console.log('[Injected Script] Video changed to:', videoId);
-
-    // Reset state for new video
-    if (state.fallbackTimer) {
-      clearTimeout(state.fallbackTimer);
-      state.fallbackTimer = null;
-    }
-    if (state.captionRestoreTimer) {
-      clearTimeout(state.captionRestoreTimer);
-      state.captionRestoreTimer = null;
-    }
-    if (state.navigationTimer) {
-      clearTimeout(state.navigationTimer);
-      state.navigationTimer = null;
-    }
-
-    state.currentVideoId = videoId;
-    state.transcriptCaptured = false;
-    state.fallbackInProgress = false;
-    state.originalCaptionState = null;
-
-    // Schedule fallback check
-    scheduleFallbackCheck();
-  }
-
   function scheduleFallbackCheck() {
     state.fallbackTimer = setTimeout(() => {
       if (!state.transcriptCaptured) {
@@ -260,10 +230,6 @@
 
     console.log('[Injected Script] Scheduled fallback check in', CONFIG.FALLBACK_DELAY_MS, 'ms');
   }
-
-  // ============================================
-  // NETWORK INTERCEPTION
-  // ============================================
 
   function onTranscriptCaptured(videoId, transcript) {
     console.log('[Injected Script] Transcript captured for video:', videoId);
@@ -300,92 +266,88 @@
     state.fallbackInProgress = false;
   }
 
-  // Wrap existing fetch
-  const originalFetch = window.fetch;
-  window.fetch = async function(...args) {
-    const response = await originalFetch.apply(this, args);
-    const url = args[0];
+  function setupNetworkInterception() {
+    // Wrap existing fetch
+    const originalFetch = window.fetch;
+    window.fetch = async function(...args) {
+      const response = await originalFetch.apply(this, args);
+      const url = args[0];
 
-    if (typeof url === 'string' && url.includes('youtube.com/api/timedtext')) {
-      console.log('[Injected Script] Detected timedtext request:', url);
-      try {
-        const clone = response.clone();
-        const data = await clone.json();
-        const urlObj = new URL(url);
-        const videoId = urlObj.searchParams.get('v');
-
-        onTranscriptCaptured(videoId, data);
-      } catch (error) {
-        console.error('[Injected Script] Error capturing transcript from fetch:', error);
-      }
-    }
-
-    return response;
-  };
-
-  // Wrap existing XMLHttpRequest
-  const originalOpen = XMLHttpRequest.prototype.open;
-  const originalSend = XMLHttpRequest.prototype.send;
-
-  XMLHttpRequest.prototype.open = function(method, url) {
-    this._url = url;
-    return originalOpen.apply(this, arguments);
-  };
-
-  XMLHttpRequest.prototype.send = function() {
-    if (this._url && this._url.includes('youtube.com/api/timedtext')) {
-      this.addEventListener('load', function() {
+      if (typeof url === 'string' && url.includes('youtube.com/api/timedtext')) {
+        console.log('[Injected Script] Detected timedtext request:', url);
         try {
-          const data = JSON.parse(this.responseText);
-          const urlObj = new URL(this._url);
+          const clone = response.clone();
+          const data = await clone.json();
+          const urlObj = new URL(url);
           const videoId = urlObj.searchParams.get('v');
 
           onTranscriptCaptured(videoId, data);
         } catch (error) {
-          console.error('[Injected Script] Error capturing transcript from XHR:', error);
+          console.error('[Injected Script] Error capturing transcript from fetch:', error);
         }
-      });
-    }
-    return originalSend.apply(this, arguments);
-  };
-
-  // ============================================
-  // NAVIGATION MONITORING SETUP
-  // ============================================
-
-  // Method 1: Listen to YouTube's yt-navigate-finish event
-  document.addEventListener('yt-navigate-finish', () => {
-    const videoId = getCurrentVideoId();
-    if (videoId && videoId !== state.currentVideoId) {
-      console.log('[Injected Script] SPA navigation detected via yt-navigate-finish');
-
-      // Clear any pending navigation timer
-      if (state.navigationTimer) {
-        clearTimeout(state.navigationTimer);
       }
 
-      // Schedule navigation handling after settle delay
-      state.navigationTimer = setTimeout(() => {
-        state.navigationTimer = null;
-        // Re-check video ID in case user navigated again during delay
-        const currentVideoId = getCurrentVideoId();
-        if (currentVideoId === videoId) {
-          onVideoChange(videoId);
-        } else {
-          console.log('[Injected Script] Video changed during settle delay, skipping');
-        }
-      }, CONFIG.NAVIGATION_SETTLE_DELAY_MS);
-    }
-  });
+      return response;
+    };
 
-  // Method 2: Fallback URL change detection (for older YouTube versions)
-  let lastUrl = location.href;
-  const urlObserver = new MutationObserver(() => {
-    if (location.href !== lastUrl) {
-      lastUrl = location.href;
+    // Wrap existing XMLHttpRequest
+    const originalOpen = XMLHttpRequest.prototype.open;
+    const originalSend = XMLHttpRequest.prototype.send;
+
+    XMLHttpRequest.prototype.open = function(method, url) {
+      this._url = url;
+      return originalOpen.apply(this, arguments);
+    };
+
+    XMLHttpRequest.prototype.send = function() {
+      if (this._url && this._url.includes('youtube.com/api/timedtext')) {
+        this.addEventListener('load', function() {
+          try {
+            const data = JSON.parse(this.responseText);
+            const urlObj = new URL(this._url);
+            const videoId = urlObj.searchParams.get('v');
+
+            onTranscriptCaptured(videoId, data);
+          } catch (error) {
+            console.error('[Injected Script] Error capturing transcript from XHR:', error);
+          }
+        });
+      }
+      return originalSend.apply(this, arguments);
+    };
+  }
+
+  function onVideoChange(videoId) {
+    console.log('[Injected Script] Video changed to:', videoId);
+
+    // Reset state for new video
+    resetState();
+
+    state.currentVideoId = videoId;
+
+    // Schedule fallback check
+    scheduleFallbackCheck();
+  }
+
+  function initializeForCurrentVideo() {
+    const videoId = getCurrentVideoId();
+    if (videoId) {
+      console.log('[Injected Script] Initial video detected:', videoId);
+      // Wait for player to be ready
+      setTimeout(() => {
+        onVideoChange(videoId);
+      }, CONFIG.NAVIGATION_SETTLE_DELAY_MS);
+    } else {
+      console.log('[Injected Script] Not a video page, waiting for navigation');
+    }
+  }
+
+  function setupNavigationListeners() {
+    // Method 1: Listen to YouTube's yt-navigate-finish event
+    document.addEventListener('yt-navigate-finish', () => {
       const videoId = getCurrentVideoId();
       if (videoId && videoId !== state.currentVideoId) {
-        console.log('[Injected Script] SPA navigation detected via URL change');
+        console.log('[Injected Script] SPA navigation detected via yt-navigate-finish');
 
         // Clear any pending navigation timer
         if (state.navigationTimer) {
@@ -404,34 +366,60 @@
           }
         }, CONFIG.NAVIGATION_SETTLE_DELAY_MS);
       }
-    }
-  });
+    });
 
-  urlObserver.observe(document, {
-    subtree: true,
-    childList: true
-  });
+    // Method 2: Fallback URL change detection (for older YouTube versions)
+    let lastUrl = location.href;
+    const urlObserver = new MutationObserver(() => {
+      if (location.href !== lastUrl) {
+        lastUrl = location.href;
+        const videoId = getCurrentVideoId();
+        if (videoId && videoId !== state.currentVideoId) {
+          console.log('[Injected Script] SPA navigation detected via URL change');
 
-  // Method 3: Initial page load detection
-  function initializeForCurrentVideo() {
-    const videoId = getCurrentVideoId();
-    if (videoId) {
-      console.log('[Injected Script] Initial video detected:', videoId);
-      // Wait for player to be ready
-      setTimeout(() => {
-        onVideoChange(videoId);
-      }, CONFIG.NAVIGATION_SETTLE_DELAY_MS);
+          // Clear any pending navigation timer
+          if (state.navigationTimer) {
+            clearTimeout(state.navigationTimer);
+          }
+
+          // Schedule navigation handling after settle delay
+          state.navigationTimer = setTimeout(() => {
+            state.navigationTimer = null;
+            // Re-check video ID in case user navigated again during delay
+            const currentVideoId = getCurrentVideoId();
+            if (currentVideoId === videoId) {
+              onVideoChange(videoId);
+            } else {
+              console.log('[Injected Script] Video changed during settle delay, skipping');
+            }
+          }, CONFIG.NAVIGATION_SETTLE_DELAY_MS);
+        }
+      }
+    });
+
+    urlObserver.observe(document, {
+      subtree: true,
+      childList: true
+    });
+  }
+
+  (function() {
+    console.log('[Injected Script] Loaded and running');
+
+    // Setup network interception to capture transcript requests
+    setupNetworkInterception();
+
+    // Setup navigation listeners for SPA navigation
+    setupNavigationListeners();
+
+    // Initialize for the current video
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initializeForCurrentVideo);
     } else {
-      console.log('[Injected Script] Not a video page, waiting for navigation');
+      initializeForCurrentVideo();
     }
-  }
 
-  // Start monitoring when script loads
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeForCurrentVideo);
-  } else {
-    initializeForCurrentVideo();
-  }
+    console.log('[Injected Script] Navigation detection initialized');
+  })();
 
-  console.log('[Injected Script] Navigation detection initialized');
 })();

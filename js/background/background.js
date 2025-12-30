@@ -4,11 +4,12 @@ let resultsTabId = null;
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'TRANSCRIPT_CAPTURED') {
     saveTranscript(message.videoId, message.transcript, message.metadata);
+    // No response needed for this message type
   } else if (message.type === 'OPEN_SEARCH_RESULTS') {
     handleSearchRequest(message.query);
     sendResponse({ success: true });
+    return true; // Only return true when we're sending an async response
   }
-  return true;
 });
 
 async function saveTranscript(videoId, transcript, metadata) {
@@ -44,7 +45,7 @@ async function handleSearchRequest(query) {
       console.log('[Background] Reusing existing results tab');
       await chrome.tabs.update(resultsTabId, {
         active: true,
-        url: `results.html?q=${encodeURIComponent(query)}`
+        url: chrome.runtime.getURL(`html/results.html?q=${encodeURIComponent(query)}`)
       });
 
       // Focus the window containing the tab
@@ -60,7 +61,7 @@ async function handleSearchRequest(query) {
   // Create new results tab
   console.log('[Background] Creating new results tab');
   const tab = await chrome.tabs.create({
-    url: `results.html?q=${encodeURIComponent(query)}`,
+    url: chrome.runtime.getURL(`html/results.html?q=${encodeURIComponent(query)}`),
     active: true
   });
 

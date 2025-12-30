@@ -6,19 +6,19 @@
   "permissions": ["storage", "tabs"],
   "host_permissions": ["*://*.youtube.com/*"],
   "action": {
-    "default_popup": "popup.html",
-    "default_icon": "search.png"
+    "default_popup": "html/popup.html",
+    "default_icon": "assets/icons/search.png"
   },
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "js/background/background.js"
   },
   "content_scripts": [{
     "matches": ["*://*.youtube.com/*"],
-    "js": ["content.js"],
+    "js": ["js/content/content.js"],
     "run_at": "document_idle"
   }],
   "web_accessible_resources": [{
-    "resources": ["injected.js"],
+    "resources": ["js/injected/dist/injected.bundle.js"],
     "matches": ["*://*.youtube.com/*"]
   }]
 }
