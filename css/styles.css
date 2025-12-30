@@ -21,3 +21,15 @@ ul[role="menubar"] > [role="menuitem"][aria-selected="true"] {
   background: #39f;
   color: #fff;
 }
+
+/* Style disabled tab in menubar */
+ul[role="menubar"] > [role="menuitem"][aria-disabled="true"] {
+  color: #888;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Prevent hover effects on disabled tabs */
+ul[role="menubar"] > [role="menuitem"][aria-disabled="true"]:hover {
+  background: transparent;
+}

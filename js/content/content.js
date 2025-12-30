@@ -19,14 +19,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 async function checkCaptionsAvailability() {
-  // Wait for the subtitle button to be available
+  // Wait for the subtitle button to be available in the YouTube page DOM
+  // Note: This runs in the content script context, so 'document' refers to
+  // the YouTube page's document, NOT the popup's document
   let retries = 10;
   while (retries > 0) {
     const subtitleButtons = document.getElementsByClassName('ytp-subtitles-button');
     if (subtitleButtons.length > 0) {
       const subtitleButton = subtitleButtons[0];
-      const label = subtitleButton.getAttribute('aria-label');
-      const captionsUnavailable = label && label.includes("unavailable");
+      // Check the data-tooltip-title attribute (more reliable than aria-label)
+      const tooltipTitle = subtitleButton.getAttribute('data-tooltip-title') || '';
+      const captionsUnavailable = tooltipTitle.toLowerCase().includes('unavailable');
       return { captionsUnavailable };
     }
     await new Promise(resolve => setTimeout(resolve, 100));

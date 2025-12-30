@@ -8,6 +8,10 @@ document.getElementById('searchInput').addEventListener('keypress', function(eve
 
 // Add click listeners to tabs
 document.getElementById('current-video').addEventListener('click', function() {
+  // Don't allow clicking if disabled
+  if (this.getAttribute('aria-disabled') === 'true') {
+    return;
+  }
   selectTab('current-video');
 });
 
@@ -59,9 +63,13 @@ async function checkForCaptionsAndUpdatePopup() {
 
   const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
   const isWatchURL = tab.url.includes("/watch");
+  const currentVideoTab = document.getElementById("current-video");
+  const tooltip = document.getElementById("current-video-disabled-reason");
 
   if (!isWatchURL) {
-    // Not on a watch page, show transcripts tab
+    // Not on a watch page, disable current video tab and show transcripts tab
+    currentVideoTab.setAttribute("aria-disabled", "true");
+    tooltip.removeAttribute("hidden");
     selectTab("transcipts");
     return;
   }
@@ -70,7 +78,9 @@ async function checkForCaptionsAndUpdatePopup() {
   chrome.tabs.sendMessage(tab.id, {type: 'CHECK_CAPTIONS'}, (response) => {
     if (chrome.runtime.lastError) {
       console.log('[Popup] Could not check captions:', chrome.runtime.lastError.message);
-      // Default to transcripts tab if we can't check
+      // Default to transcripts tab if we can't check, and disable current video tab
+      currentVideoTab.setAttribute("aria-disabled", "true");
+      tooltip.removeAttribute("hidden");
       selectTab("transcipts");
       return;
     }
@@ -79,10 +89,14 @@ async function checkForCaptionsAndUpdatePopup() {
 
     // If there are no captions available on the current video
     if (captionsUnavailable) {
-      // Select the transcript tab and change text
+      // Disable current video tab, select the transcript tab
+      currentVideoTab.setAttribute("aria-disabled", "true");
+      tooltip.removeAttribute("hidden");
       selectTab("transcipts");
     } else {
-      // Select the current video tab
+      // Enable current video tab and select it
+      currentVideoTab.removeAttribute("aria-disabled");
+      tooltip.setAttribute("hidden", "");
       selectTab("current-video");
     }
   });
