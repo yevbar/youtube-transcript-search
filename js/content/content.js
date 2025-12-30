@@ -30,7 +30,7 @@ async function checkCaptionsAvailability() {
   // Wait for the subtitle button to be available in the YouTube page DOM
   // Note: This runs in the content script context, so 'document' refers to
   // the YouTube page's document, NOT the popup's document
-  let retries = 10;
+  let retries = 15; // 15 * 100ms = 1.5 seconds
   while (retries > 0) {
     const subtitleButtons = document.getElementsByClassName('ytp-subtitles-button');
     if (subtitleButtons.length > 0) {

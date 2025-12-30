@@ -1,6 +1,17 @@
 import { findMatches } from '../results/search.js';
 import { extractContext, highlightText, escapeHtml, formatTime } from '../results/utils.js';
 
+// Caption checking state
+let captionCheckAttempts = 0;
+const MAX_CAPTION_CHECK_ATTEMPTS = 4;
+const RETRY_DELAYS = [0, 500, 1500, 3000];
+let captionCheckInProgress = false;
+let captionCheckTimeoutId = null;
+
+// User interaction tracking
+let userHasManuallySelectedTab = false;
+let initialTabSelectionMade = false;
+
 document.getElementById('searchButton').addEventListener('click', performSearch);
 
 document.getElementById('searchInput').addEventListener('keypress', function(event) {
@@ -15,11 +26,29 @@ document.getElementById('current-video').addEventListener('click', function() {
   if (this.getAttribute('aria-disabled') === 'true') {
     return;
   }
+  userHasManuallySelectedTab = true;
   selectTab('current-video');
 });
 
 document.getElementById('transcipts').addEventListener('click', function() {
+  userHasManuallySelectedTab = true;
   selectTab('transcipts');
+});
+
+document.getElementById('searchInput').addEventListener('focus', function() {
+  console.log('[Popup] User focused search input');
+  if (captionCheckTimeoutId) {
+    clearTimeout(captionCheckTimeoutId);
+    captionCheckTimeoutId = null;
+  }
+});
+
+document.getElementById('searchInput').addEventListener('input', function() {
+  console.log('[Popup] User typing in search input');
+  if (captionCheckTimeoutId) {
+    clearTimeout(captionCheckTimeoutId);
+    captionCheckTimeoutId = null;
+  }
 });
 
 async function performSearch() {
@@ -174,8 +203,65 @@ function clearCurrentVideoResults() {
   document.getElementById('currentVideoResultsCount').textContent = '';
 }
 
-async function checkForCaptionsAndUpdatePopup() {
-  console.log("Checking for captions and whether to update the popup");
+function isUserActivelyTyping() {
+  const searchInput = document.getElementById('searchInput');
+  return document.activeElement === searchInput;
+}
+
+function shouldPreserveUserState() {
+  return isUserActivelyTyping() || userHasManuallySelectedTab;
+}
+
+function handleCaptionCheckSuccess() {
+  console.log('[Popup] Captions available - enabling current video tab');
+  const currentVideoTab = document.getElementById("current-video");
+  currentVideoTab.removeAttribute("aria-disabled");
+
+  if (!shouldPreserveUserState() && !initialTabSelectionMade) {
+    selectTab("current-video");
+    initialTabSelectionMade = true;
+  }
+
+  if (captionCheckTimeoutId) {
+    clearTimeout(captionCheckTimeoutId);
+    captionCheckTimeoutId = null;
+  }
+}
+
+function handleCaptionCheckFailure() {
+  if (captionCheckAttempts < MAX_CAPTION_CHECK_ATTEMPTS) {
+    const nextAttemptDelay = RETRY_DELAYS[captionCheckAttempts];
+    const currentDelay = captionCheckAttempts === 0 ? 0 : RETRY_DELAYS[captionCheckAttempts - 1];
+    const waitTime = nextAttemptDelay - currentDelay;
+
+    console.log(`[Popup] Scheduling retry ${captionCheckAttempts + 1} in ${waitTime}ms`);
+    captionCheckTimeoutId = setTimeout(() => {
+      checkForCaptionsAndUpdatePopup(true);
+    }, waitTime);
+  } else {
+    console.log('[Popup] All caption check attempts exhausted');
+    disableCurrentVideoTab();
+  }
+}
+
+function disableCurrentVideoTab() {
+  const currentVideoTab = document.getElementById("current-video");
+  currentVideoTab.setAttribute("aria-disabled", "true");
+
+  if (!shouldPreserveUserState() && !initialTabSelectionMade) {
+    selectTab("transcipts");
+    initialTabSelectionMade = true;
+  }
+}
+
+async function checkForCaptionsAndUpdatePopup(isRetry = false) {
+  // Don't retry if user has started interacting
+  if (isRetry && shouldPreserveUserState()) {
+    console.log('[Popup] Skipping caption check - user is actively using the popup');
+    return;
+  }
+
+  console.log(`[Popup] Caption check attempt ${captionCheckAttempts + 1}/${MAX_CAPTION_CHECK_ATTEMPTS}`);
 
   const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
   const isWatchURL = tab.url.includes("/watch");
@@ -183,30 +269,35 @@ async function checkForCaptionsAndUpdatePopup() {
 
   if (!isWatchURL) {
     console.log('[Popup] Not on a watch page');
-    currentVideoTab.setAttribute("aria-disabled", "true");
-    selectTab("transcipts");
+    disableCurrentVideoTab();
     return;
   }
 
-  // Add timeout to prevent hanging
-  let responseReceived = false;
-  const timeout = setTimeout(() => {
-    if (!responseReceived) {
-      console.log('[Popup] Timeout waiting for caption check response');
-      currentVideoTab.setAttribute("aria-disabled", "true");
-      selectTab("transcipts");
-    }
-  }, 2000); // 2 second timeout
+  if (captionCheckInProgress) {
+    console.log('[Popup] Caption check already in progress');
+    return;
+  }
 
-  // Query the YouTube tab for caption availability
+  captionCheckInProgress = true;
+  captionCheckAttempts++;
+
+  // Set timeout for this attempt
+  const attemptTimeoutId = setTimeout(() => {
+    if (captionCheckInProgress) {
+      console.log('[Popup] Timeout on caption check attempt', captionCheckAttempts);
+      captionCheckInProgress = false;
+      handleCaptionCheckFailure();
+    }
+  }, 1500);
+
+  // Query content script for caption availability
   chrome.tabs.sendMessage(tab.id, {type: 'CHECK_CAPTIONS'}, (response) => {
-    responseReceived = true;
-    clearTimeout(timeout);
+    captionCheckInProgress = false;
+    clearTimeout(attemptTimeoutId);
 
     if (chrome.runtime.lastError) {
       console.log('[Popup] Could not check captions:', chrome.runtime.lastError.message);
-      currentVideoTab.setAttribute("aria-disabled", "true");
-      selectTab("transcipts");
+      handleCaptionCheckFailure();
       return;
     }
 
@@ -214,13 +305,9 @@ async function checkForCaptionsAndUpdatePopup() {
     const captionsUnavailable = !response || response.captionsUnavailable;
 
     if (captionsUnavailable) {
-      console.log('[Popup] Captions unavailable - disabling current video tab');
-      currentVideoTab.setAttribute("aria-disabled", "true");
-      selectTab("transcipts");
+      handleCaptionCheckFailure();
     } else {
-      console.log('[Popup] Captions available - enabling current video tab');
-      currentVideoTab.removeAttribute("aria-disabled");
-      selectTab("current-video");
+      handleCaptionCheckSuccess();
     }
   });
 }
