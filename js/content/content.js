@@ -35,15 +35,34 @@ async function checkCaptionsAvailability() {
     const subtitleButtons = document.getElementsByClassName('ytp-subtitles-button');
     if (subtitleButtons.length > 0) {
       const subtitleButton = subtitleButtons[0];
-      // Check the data-tooltip-title attribute (more reliable than aria-label)
-      const tooltipTitle = subtitleButton.getAttribute('data-tooltip-title') || '';
-      const captionsUnavailable = tooltipTitle.toLowerCase().includes('unavailable');
+
+      // Log all relevant attributes for debugging
+      const tooltipTitle = subtitleButton.getAttribute('data-tooltip-title');
+      const ariaLabel = subtitleButton.getAttribute('aria-label');
+      const title = subtitleButton.getAttribute('title');
+
+      console.log('[Content Script] Subtitle button attributes:', {
+        'data-tooltip-title': tooltipTitle,
+        'aria-label': ariaLabel,
+        'title': title,
+        'all attributes': Array.from(subtitleButton.attributes).map(a => `${a.name}="${a.value}"`).join(', ')
+      });
+
+      // Check all possible attributes
+      const captionsUnavailable =
+        (tooltipTitle && tooltipTitle.toLowerCase().includes('unavailable')) ||
+        (ariaLabel && ariaLabel.toLowerCase().includes('unavailable')) ||
+        (title && title.toLowerCase().includes('unavailable'));
+
+      console.log('[Content Script] Caption check result:', { captionsUnavailable });
+
       return { captionsUnavailable };
     }
     await new Promise(resolve => setTimeout(resolve, 100));
     retries--;
   }
-  // If we couldn't find the button after retries, assume captions are unavailable
+
+  console.log('[Content Script] Subtitle button not found after retries');
   return { captionsUnavailable: true };
 }
 

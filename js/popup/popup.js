@@ -180,39 +180,46 @@ async function checkForCaptionsAndUpdatePopup() {
   const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
   const isWatchURL = tab.url.includes("/watch");
   const currentVideoTab = document.getElementById("current-video");
-  const tooltip = document.getElementById("current-video-disabled-reason");
 
   if (!isWatchURL) {
-    // Not on a watch page, disable current video tab and show transcripts tab
+    console.log('[Popup] Not on a watch page');
     currentVideoTab.setAttribute("aria-disabled", "true");
-    tooltip.removeAttribute("hidden");
     selectTab("transcipts");
     return;
   }
 
+  // Add timeout to prevent hanging
+  let responseReceived = false;
+  const timeout = setTimeout(() => {
+    if (!responseReceived) {
+      console.log('[Popup] Timeout waiting for caption check response');
+      currentVideoTab.setAttribute("aria-disabled", "true");
+      selectTab("transcipts");
+    }
+  }, 2000); // 2 second timeout
+
   // Query the YouTube tab for caption availability
   chrome.tabs.sendMessage(tab.id, {type: 'CHECK_CAPTIONS'}, (response) => {
+    responseReceived = true;
+    clearTimeout(timeout);
+
     if (chrome.runtime.lastError) {
       console.log('[Popup] Could not check captions:', chrome.runtime.lastError.message);
-      // Default to transcripts tab if we can't check, and disable current video tab
       currentVideoTab.setAttribute("aria-disabled", "true");
-      tooltip.removeAttribute("hidden");
       selectTab("transcipts");
       return;
     }
 
+    console.log('[Popup] Caption check response:', response);
     const captionsUnavailable = !response || response.captionsUnavailable;
 
-    // If there are no captions available on the current video
     if (captionsUnavailable) {
-      // Disable current video tab, select the transcript tab
+      console.log('[Popup] Captions unavailable - disabling current video tab');
       currentVideoTab.setAttribute("aria-disabled", "true");
-      tooltip.removeAttribute("hidden");
       selectTab("transcipts");
     } else {
-      // Enable current video tab and select it
+      console.log('[Popup] Captions available - enabling current video tab');
       currentVideoTab.removeAttribute("aria-disabled");
-      tooltip.setAttribute("hidden", "");
       selectTab("current-video");
     }
   });

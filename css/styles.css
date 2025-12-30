@@ -34,6 +34,26 @@ ul[role="menubar"] > [role="menuitem"][aria-disabled="true"]:hover {
   background: transparent;
 }
 
+/* Hide tooltip by default */
+#current-video-disabled-reason {
+  display: none;
+  position: absolute;
+  top: 50px; /* Below menubar */
+  left: 10px;
+  z-index: 1000;
+}
+
+/* Show tooltip on hover of disabled menu item */
+#current-video[aria-disabled="true"]:hover + #current-video-disabled-reason,
+#current-video-disabled-reason:hover {
+  display: block;
+}
+
+/* Ensure hidden attribute always works if used */
+[role="tooltip"][hidden] {
+  display: none !important;
+}
+
 /* Current video search results container */
 .results-container {
   margin-top: 12px;
