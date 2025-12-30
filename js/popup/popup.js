@@ -20,6 +20,11 @@ document.getElementById('searchInput').addEventListener('keypress', function(eve
   }
 });
 
+// Add close button functionality
+document.querySelector('.title-bar-controls button[aria-label="Close"]').addEventListener('click', () => {
+  window.close();
+});
+
 // Add click listeners to tabs
 document.getElementById('current-video').addEventListener('click', function() {
   // Don't allow clicking if disabled
