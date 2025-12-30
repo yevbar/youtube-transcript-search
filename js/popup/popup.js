@@ -54,6 +54,10 @@ document.getElementById('searchInput').addEventListener('input', function() {
     clearTimeout(captionCheckTimeoutId);
     captionCheckTimeoutId = null;
   }
+
+  // Save the current query text
+  const query = this.value;
+  chrome.storage.local.set({ lastQuery: query });
 });
 
 async function performSearch() {
@@ -333,5 +337,12 @@ function selectTab(tabId) {
     document.getElementById("searchInputLabel").innerHTML = "Search current video:";
   }
 }
+
+// Load the last query when popup opens
+chrome.storage.local.get('lastQuery', (result) => {
+  if (result.lastQuery) {
+    document.getElementById('searchInput').value = result.lastQuery;
+  }
+});
 
 checkForCaptionsAndUpdatePopup();
