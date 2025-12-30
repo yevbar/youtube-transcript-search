@@ -21,11 +21,14 @@ export function displayResults(results, query) {
 
   results.forEach(result => {
     const thumbnailUrl = `https://img.youtube.com/vi/${result.videoId}/mqdefault.jpg`;
+    const trimmedBadge = result.isTrimmed
+      ? '<span class="trimmed-badge" title="Older transcript with stop words removed">Trimmed</span>'
+      : '';
 
     // Start collapsible result card
     html += `
       <details class="result-card" open>
-        <summary>${escapeHtml(result.title)}</summary>
+        <summary>${escapeHtml(result.title)} ${trimmedBadge}</summary>
         <div class="result-content">
           <div class="video-player">
             <a href="${result.url}" target="_blank" class="thumbnail-link">

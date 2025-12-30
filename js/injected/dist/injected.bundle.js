@@ -401,6 +401,28 @@
       subtree: true,
       childList: true
     });
+
+    // Listen for timestamp navigation requests from extension
+    window.addEventListener('message', function(event) {
+      if (event.source !== window) return;
+
+      if (event.data.type === 'NAVIGATE_TO_TIMESTAMP') {
+        navigateToTimestamp(event.data.timestamp);
+      }
+    });
+  }
+
+  function navigateToTimestamp(seconds) {
+    console.log('[Injected Script] Navigating to timestamp:', seconds);
+
+    const player = document.querySelector('video');
+    if (!player) {
+      console.error('[Injected Script] Video player not found');
+      return;
+    }
+
+    player.currentTime = seconds;
+    console.log('[Injected Script] Navigation complete');
   }
 
   (function() {

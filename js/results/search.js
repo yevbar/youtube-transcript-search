@@ -28,6 +28,7 @@ export async function performSearch(query) {
         title: videoData.title,
         author: videoData.author,
         url: videoData.url,
+        isTrimmed: videoData.isTrimmed || false,
         matches: matches
       });
     }

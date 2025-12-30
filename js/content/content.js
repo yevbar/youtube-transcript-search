@@ -15,6 +15,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       sendResponse(result);
     });
     return true; // Required to use sendResponse asynchronously
+  } else if (request.type === 'NAVIGATE_TO_TIMESTAMP') {
+    // Forward navigation request to injected script
+    window.postMessage({
+      type: 'NAVIGATE_TO_TIMESTAMP',
+      timestamp: request.timestamp
+    }, '*');
+    sendResponse({ success: true });
+    return true;
   }
 });
 

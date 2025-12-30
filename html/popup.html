@@ -26,8 +26,15 @@
         <input type="text" id="searchInput" placeholder="Enter search query...">
         <button id="searchButton">Search</button>
       </div>
+      <div id="currentVideoResults" class="results-container" hidden>
+        <div class="results-header">
+          <span id="currentVideoResultsCount"></span>
+          <button id="clearResultsButton" class="clear-button">×</button>
+        </div>
+        <div id="currentVideoResultsContent" class="results-list"></div>
+      </div>
     </div>
   </div>
-  <script src="../js/popup/popup.js"></script>
+  <script type="module" src="../js/popup/popup.js"></script>
 </body>
 </html>

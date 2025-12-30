@@ -1,3 +1,6 @@
+import { findMatches } from '../results/search.js';
+import { extractContext, highlightText, escapeHtml, formatTime } from '../results/utils.js';
+
 document.getElementById('searchButton').addEventListener('click', performSearch);
 
 document.getElementById('searchInput').addEventListener('keypress', function(event) {
@@ -19,26 +22,21 @@ document.getElementById('transcipts').addEventListener('click', function() {
   selectTab('transcipts');
 });
 
+document.getElementById('clearResultsButton').addEventListener('click', clearCurrentVideoResults);
+
 async function performSearch() {
   const query = document.getElementById('searchInput').value;
-  console.log('[Popup] Search query:', query);
 
   if (!query.trim()) {
-    console.log('[Popup] Empty query, aborting');
     return;
   }
 
-  // Check which tab is selected
   const currentVideoSelected = document.getElementById('current-video').getAttribute('aria-selected') === 'true';
 
   if (currentVideoSelected) {
-    // Search in current video (this would need to be implemented)
-    console.log('[Popup] Searching current video for:', query);
-    // TODO: Implement current video search
-    alert('Current video search not yet implemented');
+    await performCurrentVideoSearch(query);
   } else {
-    // Search all transcripts
-    performTranscriptSearch(query);
+    await performTranscriptSearch(query);
   }
 }
 
@@ -56,6 +54,126 @@ async function performTranscriptSearch(query) {
   });
 
   window.close();
+}
+
+async function performCurrentVideoSearch(query) {
+  console.log('[Popup] Searching current video for:', query);
+
+  try {
+    // Get current tab to extract video ID
+    const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+    const urlParams = new URLSearchParams(new URL(tab.url).search);
+    const videoId = urlParams.get('v');
+
+    if (!videoId) {
+      showCurrentVideoResults([], query, 'Could not determine video ID');
+      return;
+    }
+
+    // Load transcript from storage
+    const result = await chrome.storage.local.get('videos');
+    const videos = result.videos || {};
+    const videoData = videos[videoId];
+
+    if (!videoData || !videoData.transcript) {
+      showCurrentVideoResults([], query, 'No transcript found for this video. Try enabling captions and refreshing.');
+      return;
+    }
+
+    // Search using existing findMatches function
+    const matches = findMatches(videoData.transcript, query);
+
+    // Display results in popup
+    showCurrentVideoResults(matches, query, null, videoId);
+
+  } catch (error) {
+    console.error('[Popup] Error searching current video:', error);
+    showCurrentVideoResults([], query, 'Error searching transcript: ' + error.message);
+  }
+}
+
+function showCurrentVideoResults(matches, query, errorMessage, videoId) {
+  const resultsContainer = document.getElementById('currentVideoResults');
+  const resultsCount = document.getElementById('currentVideoResultsCount');
+  const resultsContent = document.getElementById('currentVideoResultsContent');
+
+  // Show the results container
+  resultsContainer.removeAttribute('hidden');
+
+  // Handle error case
+  if (errorMessage) {
+    resultsCount.textContent = 'Error';
+    resultsContent.innerHTML = `<div class="no-results-message">${escapeHtml(errorMessage)}</div>`;
+    return;
+  }
+
+  // Handle no results case
+  if (matches.length === 0) {
+    resultsCount.textContent = 'No matches found';
+    resultsContent.innerHTML = `<div class="no-results-message">No matches found for "${escapeHtml(query)}"</div>`;
+    return;
+  }
+
+  // Display match count
+  resultsCount.textContent = `${matches.length} match${matches.length !== 1 ? 'es' : ''}`;
+
+  // Build results HTML
+  let html = '';
+  matches.forEach((match, index) => {
+    const context = extractContext(match.text, query);
+    const highlightedText = highlightText(escapeHtml(context), query);
+
+    html += `
+      <div class="result-item" data-timestamp="${match.timeSeconds}" data-index="${index}">
+        <div class="result-timestamp">${formatTime(match.timestamp)}</div>
+        <div class="result-text">${highlightedText}</div>
+      </div>
+    `;
+  });
+
+  resultsContent.innerHTML = html;
+
+  // Add click handlers to result items
+  const resultItems = resultsContent.querySelectorAll('.result-item');
+  resultItems.forEach(item => {
+    item.addEventListener('click', async () => {
+      const timestamp = parseInt(item.getAttribute('data-timestamp'));
+      await navigateToTimestamp(timestamp);
+    });
+  });
+}
+
+async function navigateToTimestamp(timeSeconds) {
+  console.log('[Popup] Navigating to timestamp:', timeSeconds);
+
+  try {
+    // Get current tab
+    const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+
+    // Send message to content script to navigate
+    chrome.tabs.sendMessage(tab.id, {
+      type: 'NAVIGATE_TO_TIMESTAMP',
+      timestamp: timeSeconds
+    }, (response) => {
+      if (chrome.runtime.lastError) {
+        console.error('[Popup] Error navigating:', chrome.runtime.lastError.message);
+        alert('Error navigating to timestamp. Try refreshing the page.');
+      } else {
+        console.log('[Popup] Navigation successful');
+      }
+    });
+
+  } catch (error) {
+    console.error('[Popup] Error in navigateToTimestamp:', error);
+    alert('Error navigating to timestamp: ' + error.message);
+  }
+}
+
+function clearCurrentVideoResults() {
+  const resultsContainer = document.getElementById('currentVideoResults');
+  resultsContainer.setAttribute('hidden', '');
+  document.getElementById('currentVideoResultsContent').innerHTML = '';
+  document.getElementById('currentVideoResultsCount').textContent = '';
 }
 
 async function checkForCaptionsAndUpdatePopup() {
@@ -113,6 +231,7 @@ function selectTab(tabId) {
   // Update label based on selected tab
   if (tabId === "transcipts") {
     document.getElementById("searchInputLabel").innerHTML = "Search transcripts:";
+    clearCurrentVideoResults();
   } else {
     document.getElementById("searchInputLabel").innerHTML = "Search current video:";
   }

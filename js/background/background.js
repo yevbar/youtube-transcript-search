@@ -1,3 +1,8 @@
+import { trimTranscript } from '../utils/stopwords.js';
+
+// Configuration
+const MAX_FULL_TRANSCRIPTS = 3;
+
 // Track the results tab ID for reuse
 let resultsTabId = null;
 
@@ -17,17 +22,37 @@ async function saveTranscript(videoId, transcript, metadata) {
     const result = await chrome.storage.local.get('videos');
     const videos = result.videos || {};
 
+    // Add/update video with full transcript
     videos[videoId] = {
       videoId: videoId,
       title: metadata.title || 'Unknown Title',
       author: metadata.author || 'Unknown Author',
       url: `https://www.youtube.com/watch?v=${videoId}`,
       timestamp: Date.now(),
-      transcript: transcript
+      transcript: transcript,
+      isTrimmed: false
     };
+
+    // Sort videos by timestamp (newest first)
+    const sortedVideos = Object.entries(videos)
+      .map(([id, data]) => ({ id, ...data }))
+      .sort((a, b) => b.timestamp - a.timestamp);
+
+    console.log('[Background] Total videos:', sortedVideos.length);
+
+    // Trim transcripts beyond top 3
+    const videosToTrim = sortedVideos.slice(MAX_FULL_TRANSCRIPTS);
+    for (const video of videosToTrim) {
+      if (!video.isTrimmed) {
+        console.log('[Background] Trimming transcript for video:', video.videoId, video.title);
+        videos[video.id].transcript = trimTranscript(video.transcript);
+        videos[video.id].isTrimmed = true;
+      }
+    }
 
     await chrome.storage.local.set({ videos: videos });
     console.log(`[Background] Transcript saved for video: ${videoId}`);
+    console.log(`[Background] Full transcripts: ${Math.min(sortedVideos.length, MAX_FULL_TRANSCRIPTS)}, Trimmed: ${videosToTrim.length}`);
   } catch (error) {
     console.error('[Background] Error saving transcript:', error);
   }
