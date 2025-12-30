@@ -5,7 +5,10 @@ export const state = {
   fallbackInProgress: false,      // Prevent concurrent fallbacks
   originalCaptionState: null,     // User's original caption preference
   captionRestoreTimer: null,      // Timer for restoring state
-  navigationTimer: null           // Timer for pending navigation
+  navigationTimer: null,          // Timer for pending navigation
+  userChangedCaptionsDuringFallback: false,  // Track user manual changes
+  captionStateObserver: null,     // MutationObserver for caption button
+  lastExtensionToggleTime: null   // Timestamp to distinguish extension vs user clicks
 };
 
 export function getCurrentVideoId() {
@@ -27,7 +30,15 @@ export function resetState() {
     state.navigationTimer = null;
   }
 
+  // Stop monitoring caption changes
+  if (state.captionStateObserver) {
+    state.captionStateObserver.disconnect();
+    state.captionStateObserver = null;
+  }
+
   state.transcriptCaptured = false;
   state.fallbackInProgress = false;
   state.originalCaptionState = null;
+  state.userChangedCaptionsDuringFallback = false;
+  state.lastExtensionToggleTime = null;
 }

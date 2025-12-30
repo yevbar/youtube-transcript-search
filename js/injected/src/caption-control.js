@@ -53,8 +53,62 @@ export async function waitForCaptionButton(maxAttempts = CONFIG.BUTTON_POLL_MAX_
   return null;
 }
 
+export function startMonitoringCaptionChanges() {
+  const button = getCaptionButton();
+  if (!button || state.captionStateObserver) {
+    return; // Already monitoring or button unavailable
+  }
+
+  console.log('[Injected Script] Starting caption change monitoring');
+
+  // Track the current state
+  let lastKnownState = getCaptionState(button);
+
+  // Create observer to watch for aria-pressed changes
+  state.captionStateObserver = new MutationObserver((mutations) => {
+    const currentState = getCaptionState(button);
+
+    // Check if state actually changed
+    if (currentState !== lastKnownState) {
+      const timeSinceLastExtensionToggle = Date.now() - (state.lastExtensionToggleTime || 0);
+
+      // If change occurred outside extension's toggle window, it's a user action
+      if (timeSinceLastExtensionToggle > CONFIG.EXTENSION_TOGGLE_WINDOW_MS) {
+        console.log('[Injected Script] User manually changed captions during fallback window');
+        state.userChangedCaptionsDuringFallback = true;
+
+        // Cancel pending restoration since user has expressed preference
+        if (state.captionRestoreTimer) {
+          console.log('[Injected Script] Cancelling restoration due to user action');
+          clearTimeout(state.captionRestoreTimer);
+          state.captionRestoreTimer = null;
+        }
+      }
+
+      lastKnownState = currentState;
+    }
+  });
+
+  // Observe changes to attributes on the button
+  state.captionStateObserver.observe(button, {
+    attributes: true,
+    attributeFilter: ['aria-pressed']
+  });
+}
+
+export function stopMonitoringCaptionChanges() {
+  if (state.captionStateObserver) {
+    console.log('[Injected Script] Stopping caption change monitoring');
+    state.captionStateObserver.disconnect();
+    state.captionStateObserver = null;
+  }
+}
+
 export function restoreOriginalCaptionState() {
   try {
+    // Stop monitoring before we potentially click
+    stopMonitoringCaptionChanges();
+
     const button = getCaptionButton();
 
     if (!button) {
@@ -67,11 +121,22 @@ export function restoreOriginalCaptionState() {
       return;
     }
 
+    // Check if user manually changed captions during fallback
+    if (state.userChangedCaptionsDuringFallback) {
+      console.log('[Injected Script] User changed captions manually, respecting user preference');
+      state.captionRestoreTimer = null;
+      state.userChangedCaptionsDuringFallback = false;
+      return;
+    }
+
     const currentState = getCaptionState(button);
 
     // Only click if we need to change state
     if (currentState !== state.originalCaptionState) {
       console.log('[Injected Script] Restoring caption state to:', state.originalCaptionState);
+
+      // Record timestamp before clicking
+      state.lastExtensionToggleTime = Date.now();
       button.click();
     } else {
       console.log('[Injected Script] Caption state already matches original');

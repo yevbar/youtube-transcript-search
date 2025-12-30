@@ -1,5 +1,6 @@
 import { state } from './state.js';
 import { scheduleRestoration } from './fallback.js';
+import { restoreOriginalCaptionState } from './caption-control.js';
 
 export function onTranscriptCaptured(videoId, transcript) {
   console.log('[Injected Script] Transcript captured for video:', videoId);
@@ -14,15 +15,21 @@ export function onTranscriptCaptured(videoId, transcript) {
     console.log('[Injected Script] Cancelled fallback timer');
   }
 
-  // Trigger restoration if fallback was used
-  if (state.fallbackInProgress && state.originalCaptionState !== null) {
-    console.log('[Injected Script] Fallback was active, scheduling restoration');
-    // Cancel any existing restoration timer
+  // If transcript captured early, cancel restoration immediately
+  // This handles cases where API responds faster than expected
+  if (state.captionRestoreTimer && !state.userChangedCaptionsDuringFallback) {
+    console.log('[Injected Script] Transcript captured, triggering immediate restoration');
+    clearTimeout(state.captionRestoreTimer);
+    state.captionRestoreTimer = null;
+
+    // Trigger immediate restoration
+    restoreOriginalCaptionState();
+  } else if (state.userChangedCaptionsDuringFallback) {
+    console.log('[Injected Script] User changed captions, cancelling restoration');
     if (state.captionRestoreTimer) {
       clearTimeout(state.captionRestoreTimer);
+      state.captionRestoreTimer = null;
     }
-    // Schedule restoration
-    scheduleRestoration();
   }
 
   // Post message to content script

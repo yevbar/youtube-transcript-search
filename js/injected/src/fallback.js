@@ -5,7 +5,9 @@ import {
   isCaptionButtonAvailable,
   getCaptionState,
   waitForCaptionButton,
-  restoreOriginalCaptionState
+  restoreOriginalCaptionState,
+  startMonitoringCaptionChanges,
+  stopMonitoringCaptionChanges
 } from './caption-control.js';
 
 export async function attemptCaptionToggleFallback() {
@@ -46,9 +48,16 @@ export async function attemptCaptionToggleFallback() {
       return;
     }
 
+    // Reset user change flag for this fallback attempt
+    state.userChangedCaptionsDuringFallback = false;
+
     // Enable captions
     console.log('[Injected Script] Enabling captions to trigger transcript fetch');
+    state.lastExtensionToggleTime = Date.now();
     button.click();
+
+    // Start monitoring for user changes
+    startMonitoringCaptionChanges();
 
     // Schedule restoration check
     scheduleRestoration();

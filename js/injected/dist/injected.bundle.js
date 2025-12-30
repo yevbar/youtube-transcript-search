@@ -7,7 +7,10 @@
     fallbackInProgress: false,      // Prevent concurrent fallbacks
     originalCaptionState: null,     // User's original caption preference
     captionRestoreTimer: null,      // Timer for restoring state
-    navigationTimer: null           // Timer for pending navigation
+    navigationTimer: null,          // Timer for pending navigation
+    userChangedCaptionsDuringFallback: false,  // Track user manual changes
+    captionStateObserver: null,     // MutationObserver for caption button
+    lastExtensionToggleTime: null   // Timestamp to distinguish extension vs user clicks
   };
 
   function getCurrentVideoId() {
@@ -29,9 +32,17 @@
       state.navigationTimer = null;
     }
 
+    // Stop monitoring caption changes
+    if (state.captionStateObserver) {
+      state.captionStateObserver.disconnect();
+      state.captionStateObserver = null;
+    }
+
     state.transcriptCaptured = false;
     state.fallbackInProgress = false;
     state.originalCaptionState = null;
+    state.userChangedCaptionsDuringFallback = false;
+    state.lastExtensionToggleTime = null;
   }
 
   const CONFIG = {
@@ -39,7 +50,9 @@
     CAPTION_RESTORE_DELAY_MS: 1000,    // Wait before restoring state
     BUTTON_POLL_INTERVAL_MS: 100,      // Interval between button polls
     BUTTON_POLL_MAX_ATTEMPTS: 30,      // Max polling attempts (3s total)
-    NAVIGATION_SETTLE_DELAY_MS: 1500};
+    NAVIGATION_SETTLE_DELAY_MS: 1500,  // Initial delay after navigation
+    EXTENSION_TOGGLE_WINDOW_MS: 200    // Window to distinguish extension vs user clicks
+  };
 
   function getCaptionButton() {
     try {
@@ -93,8 +106,62 @@
     return null;
   }
 
+  function startMonitoringCaptionChanges() {
+    const button = getCaptionButton();
+    if (!button || state.captionStateObserver) {
+      return; // Already monitoring or button unavailable
+    }
+
+    console.log('[Injected Script] Starting caption change monitoring');
+
+    // Track the current state
+    let lastKnownState = getCaptionState(button);
+
+    // Create observer to watch for aria-pressed changes
+    state.captionStateObserver = new MutationObserver((mutations) => {
+      const currentState = getCaptionState(button);
+
+      // Check if state actually changed
+      if (currentState !== lastKnownState) {
+        const timeSinceLastExtensionToggle = Date.now() - (state.lastExtensionToggleTime || 0);
+
+        // If change occurred outside extension's toggle window, it's a user action
+        if (timeSinceLastExtensionToggle > CONFIG.EXTENSION_TOGGLE_WINDOW_MS) {
+          console.log('[Injected Script] User manually changed captions during fallback window');
+          state.userChangedCaptionsDuringFallback = true;
+
+          // Cancel pending restoration since user has expressed preference
+          if (state.captionRestoreTimer) {
+            console.log('[Injected Script] Cancelling restoration due to user action');
+            clearTimeout(state.captionRestoreTimer);
+            state.captionRestoreTimer = null;
+          }
+        }
+
+        lastKnownState = currentState;
+      }
+    });
+
+    // Observe changes to attributes on the button
+    state.captionStateObserver.observe(button, {
+      attributes: true,
+      attributeFilter: ['aria-pressed']
+    });
+  }
+
+  function stopMonitoringCaptionChanges() {
+    if (state.captionStateObserver) {
+      console.log('[Injected Script] Stopping caption change monitoring');
+      state.captionStateObserver.disconnect();
+      state.captionStateObserver = null;
+    }
+  }
+
   function restoreOriginalCaptionState() {
     try {
+      // Stop monitoring before we potentially click
+      stopMonitoringCaptionChanges();
+
       const button = getCaptionButton();
 
       if (!button) {
@@ -107,11 +174,22 @@
         return;
       }
 
+      // Check if user manually changed captions during fallback
+      if (state.userChangedCaptionsDuringFallback) {
+        console.log('[Injected Script] User changed captions manually, respecting user preference');
+        state.captionRestoreTimer = null;
+        state.userChangedCaptionsDuringFallback = false;
+        return;
+      }
+
       const currentState = getCaptionState(button);
 
       // Only click if we need to change state
       if (currentState !== state.originalCaptionState) {
         console.log('[Injected Script] Restoring caption state to:', state.originalCaptionState);
+
+        // Record timestamp before clicking
+        state.lastExtensionToggleTime = Date.now();
         button.click();
       } else {
         console.log('[Injected Script] Caption state already matches original');
@@ -162,9 +240,16 @@
         return;
       }
 
+      // Reset user change flag for this fallback attempt
+      state.userChangedCaptionsDuringFallback = false;
+
       // Enable captions
       console.log('[Injected Script] Enabling captions to trigger transcript fetch');
+      state.lastExtensionToggleTime = Date.now();
       button.click();
+
+      // Start monitoring for user changes
+      startMonitoringCaptionChanges();
 
       // Schedule restoration check
       scheduleRestoration();
@@ -215,15 +300,21 @@
       console.log('[Injected Script] Cancelled fallback timer');
     }
 
-    // Trigger restoration if fallback was used
-    if (state.fallbackInProgress && state.originalCaptionState !== null) {
-      console.log('[Injected Script] Fallback was active, scheduling restoration');
-      // Cancel any existing restoration timer
+    // If transcript captured early, cancel restoration immediately
+    // This handles cases where API responds faster than expected
+    if (state.captionRestoreTimer && !state.userChangedCaptionsDuringFallback) {
+      console.log('[Injected Script] Transcript captured, triggering immediate restoration');
+      clearTimeout(state.captionRestoreTimer);
+      state.captionRestoreTimer = null;
+
+      // Trigger immediate restoration
+      restoreOriginalCaptionState();
+    } else if (state.userChangedCaptionsDuringFallback) {
+      console.log('[Injected Script] User changed captions, cancelling restoration');
       if (state.captionRestoreTimer) {
         clearTimeout(state.captionRestoreTimer);
+        state.captionRestoreTimer = null;
       }
-      // Schedule restoration
-      scheduleRestoration();
     }
 
     // Post message to content script

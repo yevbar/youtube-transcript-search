@@ -4,5 +4,6 @@ export const CONFIG = {
   BUTTON_POLL_INTERVAL_MS: 100,      // Interval between button polls
   BUTTON_POLL_MAX_ATTEMPTS: 30,      // Max polling attempts (3s total)
   NAVIGATION_SETTLE_DELAY_MS: 1500,  // Initial delay after navigation
-  TOGGLE_RETRY_DELAY_MS: 500         // Delay between off/on toggle
+  TOGGLE_RETRY_DELAY_MS: 500,        // Delay between off/on toggle
+  EXTENSION_TOGGLE_WINDOW_MS: 200    // Window to distinguish extension vs user clicks
 };
