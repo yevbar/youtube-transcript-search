@@ -15,3 +15,9 @@
 .group {
   gap: 12px; /* Increase from default 6px to 12px */
 }
+
+/* Highlight selected tab in menubar */
+ul[role="menubar"] > [role="menuitem"][aria-selected="true"] {
+  background: #39f;
+  color: #fff;
+}

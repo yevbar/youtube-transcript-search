@@ -15,9 +15,13 @@
         <button aria-label="Close"></button>
       </div>
     </div>
+    <ul role="menubar">
+      <li role="menuitem" tabindex="0" id="current-video">Current video</li>
+      <li role="menuitem" tabindex="0" id="transcipts">Transcripts</li>
+    </ul>
     <div class="window-body has-space">
       <div class="group">
-        <label for="searchInput">Search transcripts:</label>
+        <label for="searchInput" id="searchInputLabel">Search current video:</label>
         <input type="text" id="searchInput" placeholder="Enter search query...">
         <button id="searchButton">Search</button>
       </div>

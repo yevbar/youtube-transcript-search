@@ -8,6 +8,34 @@ script.onload = function() {
 };
 (document.head || document.documentElement).appendChild(script);
 
+// Listen for messages from popup
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.type === 'CHECK_CAPTIONS') {
+    checkCaptionsAvailability().then(result => {
+      sendResponse(result);
+    });
+    return true; // Required to use sendResponse asynchronously
+  }
+});
+
+async function checkCaptionsAvailability() {
+  // Wait for the subtitle button to be available
+  let retries = 10;
+  while (retries > 0) {
+    const subtitleButtons = document.getElementsByClassName('ytp-subtitles-button');
+    if (subtitleButtons.length > 0) {
+      const subtitleButton = subtitleButtons[0];
+      const label = subtitleButton.getAttribute('aria-label');
+      const captionsUnavailable = label && label.includes("unavailable");
+      return { captionsUnavailable };
+    }
+    await new Promise(resolve => setTimeout(resolve, 100));
+    retries--;
+  }
+  // If we couldn't find the button after retries, assume captions are unavailable
+  return { captionsUnavailable: true };
+}
+
 window.addEventListener('message', function(event) {
   if (event.source !== window) return;
 
