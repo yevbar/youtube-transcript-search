@@ -22,8 +22,6 @@ document.getElementById('transcipts').addEventListener('click', function() {
   selectTab('transcipts');
 });
 
-document.getElementById('clearResultsButton').addEventListener('click', clearCurrentVideoResults);
-
 async function performSearch() {
   const query = document.getElementById('searchInput').value;
 
