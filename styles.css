@@ -10,3 +10,8 @@
 #searchButton {
   width: 100%;
 }
+
+/* Popup-specific spacing for form elements */
+.group {
+  gap: 12px; /* Increase from default 6px to 12px */
+}
